@@ -2,21 +2,23 @@ package com.codeforcommunity.processor;
 
 import com.codeforcommunity.api.IAuthProcessor;
 import com.codeforcommunity.auth.JWTCreator;
+import com.codeforcommunity.auth.Passwords;
+import com.codeforcommunity.dataaccess.AuthDatabaseOperations;
+import com.codeforcommunity.dto.SessionResponse;
 import com.codeforcommunity.dto.auth.LoginRequest;
 import com.codeforcommunity.dto.auth.NewUserRequest;
 import com.codeforcommunity.dto.auth.RefreshSessionRequest;
 import com.codeforcommunity.dto.auth.RefreshSessionResponse;
 import com.codeforcommunity.exceptions.AuthException;
-import com.codeforcommunity.dto.*;
 import org.jooq.DSLContext;
 
 public class AuthProcessorImpl implements IAuthProcessor {
 
-    private final AuthDatabase authDatabase;
+    private final AuthDatabaseOperations authDatabaseOperations;
     private final JWTCreator jwtCreator;
 
     public AuthProcessorImpl(DSLContext db, JWTCreator jwtCreator) {
-        this.authDatabase = new AuthDatabase(db);
+        this.authDatabaseOperations = new AuthDatabaseOperations(db);
         this.jwtCreator = jwtCreator;
     }
 
@@ -35,7 +37,7 @@ public class AuthProcessorImpl implements IAuthProcessor {
         String refreshToken = jwtCreator.createNewRefreshToken(request.getUsername());
         String accessToken = jwtCreator.getNewAccessToken(refreshToken);
 
-        authDatabase.createNewUser(request.getUsername(), request.getEmail(), request.getPassword(),
+        authDatabaseOperations.createNewUser(request.getUsername(), request.getEmail(), request.getPassword(),
             request.getFirstName(), request.getLastName());
 
         return new SessionResponse() {{
@@ -54,7 +56,7 @@ public class AuthProcessorImpl implements IAuthProcessor {
      */
     @Override
     public SessionResponse login(LoginRequest loginRequest) throws AuthException {
-        if (authDatabase.isValidLogin(loginRequest.getUsername(), loginRequest.getPassword())) {
+        if (authDatabaseOperations.isValidLogin(loginRequest.getUsername(), loginRequest.getPassword())) {
             String refreshToken = jwtCreator.createNewRefreshToken(loginRequest.getUsername());
             String accessToken = jwtCreator.getNewAccessToken(refreshToken);
 
@@ -72,7 +74,7 @@ public class AuthProcessorImpl implements IAuthProcessor {
      */
     @Override
     public void logout(String refreshToken) {
-        authDatabase.addToBlackList(getSignature(refreshToken));
+        authDatabaseOperations.addToBlackList(getSignature(refreshToken));
     }
 
     /**
@@ -85,7 +87,7 @@ public class AuthProcessorImpl implements IAuthProcessor {
      */
     @Override
     public RefreshSessionResponse refreshSession(RefreshSessionRequest request) throws AuthException {
-        if(authDatabase.isOnBlackList(getSignature(request.getRefreshToken()))) {
+        if(authDatabaseOperations.isOnBlackList(getSignature(request.getRefreshToken()))) {
             throw new AuthException("The refresh token has been invalidated by a previous logout");
         }
 
@@ -104,4 +106,17 @@ public class AuthProcessorImpl implements IAuthProcessor {
         return token.split("\\.")[2];
     }
 
+    @Override
+    public void validateSecretKey(String secretKey) {
+        authDatabaseOperations.validateSecretKey(secretKey);
+    }
+
+    @Override
+    public String createSecretKey(int userId) {
+       String token = Passwords.generateRandomToken(50);
+
+       authDatabaseOperations.createSecretKey(userId, token);
+
+       return token;
+    }
 }

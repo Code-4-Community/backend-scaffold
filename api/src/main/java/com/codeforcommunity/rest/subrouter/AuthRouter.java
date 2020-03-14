@@ -6,7 +6,6 @@ import com.codeforcommunity.dto.auth.NewUserRequest;
 import com.codeforcommunity.dto.auth.RefreshSessionRequest;
 import com.codeforcommunity.dto.auth.RefreshSessionResponse;
 import com.codeforcommunity.dto.SessionResponse;
-import com.codeforcommunity.exceptions.MissingHeaderException;
 import com.codeforcommunity.rest.HttpConstants;
 import com.codeforcommunity.rest.IRouter;
 import com.codeforcommunity.rest.RestFunctions;
@@ -34,6 +33,8 @@ public class AuthRouter implements IRouter {
     registerRefreshUser(router);
     registerNewUser(router);
     registerLogoutUser(router);
+    registerVerifySecretKey(router);
+    registerCreateSecretKey(router);
 
     return router;
   }
@@ -58,6 +59,17 @@ public class AuthRouter implements IRouter {
     Route logoutUserRoute = router.delete( "/login");
     logoutUserRoute.handler(this::handleDeleteLogoutUser);
   }
+
+  private void registerVerifySecretKey(Router router) {
+    Route verifySecretKeyRoute = router.get("/verify/:secret_key");
+    verifySecretKeyRoute.handler(this::handleVerifySecretKey);
+  }
+
+  private void registerCreateSecretKey(Router router) {
+    Route createSecretKeyRoute = router.get("/create_secret/:user_id");
+    createSecretKeyRoute.handler(this::createSecretKey);
+  }
+
 
   private void handlePostUserLoginRoute(RoutingContext ctx) {
     LoginRequest userRequest = RestFunctions.getJsonBodyAsClass(ctx, LoginRequest.class);
@@ -87,5 +99,17 @@ public class AuthRouter implements IRouter {
     SessionResponse response = authProcessor.signUp(request);
 
     end(ctx.response(), 201, JsonObject.mapFrom(response).toString());
+  }
+
+  private void handleVerifySecretKey(RoutingContext ctx) {
+    String secret = ctx.pathParam("secret_key");
+    authProcessor.validateSecretKey(secret);
+    end(ctx.response(), 200);
+  }
+
+  private void createSecretKey(RoutingContext ctx) {
+    int userId = Integer.valueOf(ctx.pathParam("user_id"));
+    String token = authProcessor.createSecretKey(userId);
+    end(ctx.response(), 200, "Not set up yet");
   }
 }
