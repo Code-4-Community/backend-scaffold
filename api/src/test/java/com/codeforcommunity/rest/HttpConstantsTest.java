@@ -1,0 +1,1 @@
+// Tests for HttpConstants.java omitted due to lack of testable methods
