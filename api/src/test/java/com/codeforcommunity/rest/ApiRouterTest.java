@@ -15,14 +15,14 @@ import org.junit.runner.RunWith;
 
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
+import static org.mockito.Mockito.mock;
 
 @RunWith(VertxUnitRunner.class)
 @ExtendWith(MockitoExtension.class)
 public class ApiRouterTest {
-  INotesProcessor myINotesProcessor = Mockito.mock(INotesProcessor.class);
-  IAuthProcessor myIAuthProcessor = Mockito.mock(IAuthProcessor.class);
-  JWTAuthorizer myJWTAuthorizer = Mockito.mock(JWTAuthorizer.class);
+  INotesProcessor myINotesProcessor = mock(INotesProcessor.class);
+  IAuthProcessor myIAuthProcessor = mock(IAuthProcessor.class);
+  JWTAuthorizer myJWTAuthorizer = mock(JWTAuthorizer.class);
 
   @Test
   // example unit test for the main api router
