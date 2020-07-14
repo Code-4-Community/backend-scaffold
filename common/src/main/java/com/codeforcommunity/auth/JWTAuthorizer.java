@@ -10,4 +10,5 @@ public class JWTAuthorizer {
   public boolean isAuthorized(String accessToken) {
     return handler.isAuthorized(accessToken);
   }
+
 }

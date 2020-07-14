@@ -1,6 +1,7 @@
 package com.codeforcommunity.exceptions;
 
 import com.codeforcommunity.rest.subrouter.FailureHandler;
+
 import io.vertx.ext.web.RoutingContext;
 
 public class CreateUserException extends RuntimeException implements HandledException {
@@ -11,9 +12,7 @@ public class CreateUserException extends RuntimeException implements HandledExce
   }
 
   public enum UsedField {
-    EMAIL,
-    USERNAME,
-    BOTH
+    EMAIL, USERNAME, BOTH
   }
 
   private UsedField usedField;
