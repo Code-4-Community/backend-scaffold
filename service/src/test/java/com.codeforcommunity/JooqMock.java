@@ -12,7 +12,11 @@ import org.jooq.SQLDialect;
 import org.jooq.generated.DefaultSchema;
 import org.jooq.impl.DSL;
 import org.jooq.impl.UpdatableRecordImpl;
-import org.jooq.tools.jdbc.*;
+import org.jooq.tools.jdbc.MockConnection;
+import org.jooq.tools.jdbc.MockDataProvider;
+import org.jooq.tools.jdbc.MockExecuteContext;
+import org.jooq.tools.jdbc.MockResult;
+
 import java.lang.String;
 import java.util.Map;
 import java.util.HashMap;
