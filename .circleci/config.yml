@@ -24,4 +24,4 @@ jobs:
     steps:
       - checkout
 
-      - run: maven clean install
+      - run: mvn clean install
