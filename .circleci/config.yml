@@ -23,5 +23,11 @@ jobs:
 
     steps:
       - checkout
+      
+      - run: export DIR_PROP='common/src/main/resources/properties/'
+      - run: ./copy_properties.sh $DIR_PROP
+      
+      - run: psql -c 'create database "backend-scaffold";' -U postgres
 
       - run: mvn clean install
+      
