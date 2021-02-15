@@ -31,7 +31,7 @@ jobs:
         run: python3 ./deploy.py
 
       - name: Build the thing :)
-        run: mvn -B clean verify
+        run: mvn -B -q clean verify release:update-versions
 
       - name: Generate deployment package
         run: zip build.zip Dockerfile service/target/service-1.0-SNAPSHOT-jar-with-dependencies.jar

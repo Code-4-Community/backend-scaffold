@@ -89,8 +89,8 @@
             <googleJavaFormat>
               <version>1.7</version>
             </googleJavaFormat>
-            <trimTrailingWhitespace/>
-            <removeUnusedImports/>
+            <trimTrailingWhitespace />
+            <removeUnusedImports />
           </java>
         </configuration>
         <executions>
@@ -121,6 +121,15 @@
           <environmentVariables>
             <LANG>en_US</LANG>
           </environmentVariables>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>2.5.3</version>
+        <configuration>
+          <autoVersionSubmodules>true</autoVersionSubmodules>
         </configuration>
       </plugin>
     </plugins>
