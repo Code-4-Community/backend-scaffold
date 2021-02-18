@@ -46,3 +46,6 @@ jobs:
 
       - name: build and test
         run: mvn -B verify
+
+      - name: Run tests and report coverage to Coveralls
+        run: mvn clean test jacoco:report coveralls:report
