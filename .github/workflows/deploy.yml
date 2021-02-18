@@ -32,6 +32,9 @@ jobs:
       - name: Build the thing :)
         run: mvn -B clean verify
 
+      - name: Run tests and report coverage to Coveralls
+        run: mvn clean test jacoco:report coveralls:report
+
       - name: Generate deployment package
         run: zip build.zip Dockerfile service/target/service-1.0-SNAPSHOT-jar-with-dependencies.jar
 
