@@ -1,8 +1,6 @@
 name: build
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -45,7 +43,4 @@ jobs:
       - run: cp common/src/main/resources/properties/server.properties.example common/src/main/resources/properties/server.properties
 
       - name: build and test
-        run: mvn -B verify
-
-      - name: Run tests and report coverage to Coveralls
-        run: mvn clean test jacoco:report coveralls:report
+        run: mvn -B verify jacoco:report coveralls:report
