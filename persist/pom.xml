@@ -26,7 +26,7 @@
             </goals>
             <configuration>
               <files>
-                <file>../common/src/main/resources/properties/server.properties</file>
+                <file>../service/src/main/resources/properties/server.properties</file>
               </files>
             </configuration>
           </execution>
@@ -101,7 +101,7 @@
               <forcedTypes>
                 <forcedType>
                   <!-- Enum converter for roles -->
-                  <userType>com.codeforcommunity.enums.PrivilegeLevel</userType>
+                  <userType>com.codeforcommunity.auth.enums.PrivilegeLevel</userType>
                   <enumConverter>true</enumConverter>
 
                   <includeExpression>.*\.privilege_level</includeExpression>
@@ -111,7 +111,7 @@
 
                 <!-- Enum converter for verification keys -->
                 <forcedType>
-                  <userType>com.codeforcommunity.enums.VerificationKeyType</userType>
+                  <userType>com.codeforcommunity.auth.enums.VerificationKeyType</userType>
                   <enumConverter>true</enumConverter>
 
                   <includeExpression>.*\.verification_keys\.type</includeExpression>
@@ -166,7 +166,11 @@
     <dependency>
       <groupId>com.codeforcommunity</groupId>
       <artifactId>common</artifactId>
-      <version>1.0-SNAPSHOT</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.codeforcommunity</groupId>
+      <artifactId>auth</artifactId>
     </dependency>
 
     <dependency>
