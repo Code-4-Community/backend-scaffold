@@ -23,7 +23,7 @@
     <jooq-version>3.12.4</jooq-version>
     <javamail-version>6.0.3</javamail-version>
     <flyway-version>7.1.0</flyway-version>
-    <internal-deps>1.0.0-SNAPSHOT</internal-deps>
+    <internal-deps>0.1.2</internal-deps>
   </properties>
 
   <build>

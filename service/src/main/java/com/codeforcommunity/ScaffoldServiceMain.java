@@ -6,6 +6,7 @@ import com.codeforcommunity.auth.enums.IPrivilegeLevelFactory;
 import com.codeforcommunity.auth.enums.PrivilegeLevel;
 import com.codeforcommunity.dataaccess.AAuthDatabaseOperations;
 import com.codeforcommunity.dataaccess.AuthDatabaseOperations;
+import com.codeforcommunity.processor.NotesProcessor;
 import com.codeforcommunity.rest.ApiRouter;
 import com.codeforcommunity.rest.ApiRouterImpl;
 
@@ -43,6 +44,8 @@ public class ScaffoldServiceMain extends ServiceMain<PrivilegeLevel> {
   protected ApiRouter<PrivilegeLevel> initializeMainAndCreateApiRouter(
       IAuthProcessor iAuthProcessor,
       IProtectedUserProcessor<PrivilegeLevel> iProtectedUserProcessor) {
-    return new ApiRouterImpl(iAuthProcessor, iProtectedUserProcessor, jwtAuth);
+    NotesProcessor processor = new NotesProcessor(this.db);
+
+    return new ApiRouterImpl(iAuthProcessor, iProtectedUserProcessor, jwtAuth, processor);
   }
 }
