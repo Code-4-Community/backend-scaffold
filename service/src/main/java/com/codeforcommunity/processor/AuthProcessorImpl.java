@@ -49,8 +49,12 @@ public class AuthProcessorImpl implements IAuthProcessor {
             request.getFirstName(),
             request.getLastName());
 
+    String token =
+            authDatabaseOperations.createSecretKey(
+                    user.getId(), VerificationKeyType.VERIFY_EMAIL);
+
     emailer.sendWelcomeEmail(
-        request.getEmail(), AuthDatabaseOperations.getFullName(user.into(Users.class)));
+        request.getEmail(), AuthDatabaseOperations.getFullName(user.into(Users.class)), token);
 
     return setupSessionResponse(request.getEmail());
   }
