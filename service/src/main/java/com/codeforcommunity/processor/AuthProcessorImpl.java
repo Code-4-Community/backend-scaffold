@@ -50,8 +50,7 @@ public class AuthProcessorImpl implements IAuthProcessor {
             request.getLastName());
 
     String token =
-            authDatabaseOperations.createSecretKey(
-                    user.getId(), VerificationKeyType.VERIFY_EMAIL);
+        authDatabaseOperations.createSecretKey(user.getId(), VerificationKeyType.VERIFY_EMAIL);
 
     emailer.sendWelcomeEmail(
         request.getEmail(), AuthDatabaseOperations.getFullName(user.into(Users.class)), token);

@@ -36,9 +36,9 @@ public class Emailer {
 
     String baseUrl = PropertiesLoader.loadProperty("frontend_base_url");
     this.passwordResetTemplate =
-            baseUrl + PropertiesLoader.loadProperty("frontend_password_reset_route");
+        baseUrl + PropertiesLoader.loadProperty("frontend_password_reset_route");
     this.emailVerificationTemplate =
-            baseUrl + PropertiesLoader.loadProperty("frontend_email_verification_route");
+        baseUrl + PropertiesLoader.loadProperty("frontend_email_verification_route");
   }
 
   public void sendWelcomeEmail(String sendToEmail, String sendToName, String emailVerificationKey) {
@@ -46,7 +46,8 @@ public class Emailer {
 
     Map<String, String> templateValues = new HashMap<>();
     templateValues.put("name", sendToName);
-    templateValues.put("verifyLink", String.format(emailVerificationTemplate, emailVerificationKey));
+    templateValues.put(
+        "verifyLink", String.format(emailVerificationTemplate, emailVerificationKey));
     Optional<String> emailBody = emailOperations.getTemplateString(filePath, templateValues);
 
     emailBody.ifPresent(s -> emailOperations.sendEmail(sendToName, sendToEmail, subjectWelcome, s));
