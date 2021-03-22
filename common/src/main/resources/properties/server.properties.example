@@ -39,6 +39,7 @@ email_subject_account_deleted = Your Account Has Been Deleted
 # =======================================================================================================
 frontend_base_url = placeholder_url
 frontend_password_reset_route = /forgot-password-reset/%s/
+frontend_email_verification_route = /verify/%s/
 
 
 # =======================================================================================================

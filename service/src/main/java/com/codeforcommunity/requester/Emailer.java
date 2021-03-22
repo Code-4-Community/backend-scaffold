@@ -8,8 +8,8 @@ import java.util.Optional;
 
 public class Emailer {
   private final EmailOperations emailOperations;
-  private final String loginUrl;
   private final String passwordResetTemplate;
+  private final String emailVerificationTemplate;
 
   private final String subjectWelcome = PropertiesLoader.loadProperty("email_subject_welcome");
   private final String subjectEmailChange =
@@ -34,17 +34,20 @@ public class Emailer {
         new EmailOperations(
             shouldSendEmails, senderName, sendEmail, sendPassword, emailHost, emailPort);
 
-    this.loginUrl = PropertiesLoader.loadProperty("frontend_base_url");
+    String baseUrl = PropertiesLoader.loadProperty("frontend_base_url");
     this.passwordResetTemplate =
-        this.loginUrl + PropertiesLoader.loadProperty("frontend_password_reset_route");
+        baseUrl + PropertiesLoader.loadProperty("frontend_password_reset_route");
+    this.emailVerificationTemplate =
+        baseUrl + PropertiesLoader.loadProperty("frontend_email_verification_route");
   }
 
-  public void sendWelcomeEmail(String sendToEmail, String sendToName) {
+  public void sendWelcomeEmail(String sendToEmail, String sendToName, String emailVerificationKey) {
     String filePath = "/emails/WelcomeEmail.html";
 
     Map<String, String> templateValues = new HashMap<>();
     templateValues.put("name", sendToName);
-    templateValues.put("link", loginUrl);
+    templateValues.put(
+        "verifyLink", String.format(emailVerificationTemplate, emailVerificationKey));
     Optional<String> emailBody = emailOperations.getTemplateString(filePath, templateValues);
 
     emailBody.ifPresent(s -> emailOperations.sendEmail(sendToName, sendToEmail, subjectWelcome, s));
