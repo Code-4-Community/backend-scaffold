@@ -5,13 +5,21 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 
 import java.sql.SQLException;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jooq.DSLContext;
@@ -26,12 +34,13 @@ import org.jooq.tools.jdbc.MockConnection;
 import org.jooq.tools.jdbc.MockDataProvider;
 import org.jooq.tools.jdbc.MockExecuteContext;
 import org.jooq.tools.jdbc.MockResult;
+import org.mockito.invocation.InvocationOnMock;
 
 /**
  * A class to mock database interactions.
  *
  * @author Conner Nilsen
- * @version 1.1.1
+ * @version 1.1.2
  */
 public class JooqMock implements MockDataProvider {
   private static final Logger log = LogManager.getLogger(JooqMock.class);
@@ -43,19 +52,20 @@ public class JooqMock implements MockDataProvider {
   private final Map<String, Table<?>> classMap;
   // the id to give a table object
   private int id;
+  // A spy'd JooqMock, allows interception of calls to DB context
+  private JooqMock spyJooqMock = null;
+  private final ReentrantLock lock = new ReentrantLock();
+  private InvocationOnMock ctxInvocation = null;
 
   /** A class to hold all operation handler functions and call information. */
   private class Operations {
     // List of Supplier functions to call in order, acts as a queue for record Supplier functions
-    private List<Supplier<Result<? extends Record>>> recordReturns;
-    // Current location in the recordReturns list
-    private int location = 0;
+    private final Queue<Supplier<Result<? extends Record>>> recordReturns = new ArrayDeque<>();
     // Count of times this operation has been called
     private int callCount = 0;
-    // SQL used for each call linked to each Record returned (by position in list)
-    private List<List<String>> handlerSqlCalls;
-    // Bindings used for each call linked to each Record returned
-    private List<List<Object[]>> handlerSqlBindings;
+    // A list of calls to the jooq mock for this operation. Maps call sql string to binding
+    // name/value.
+    private final List<Map.Entry<String, Map<String, Object>>> callSqlBindings = new ArrayList<>();
 
     /** Constructor for 'UNKNOWN' and 'DROP/CREATE' operations. */
     Operations() {
@@ -93,10 +103,7 @@ public class JooqMock implements MockDataProvider {
     }
 
     private void j8ConstructorThisWorkaround(Supplier<Result<? extends Record>> recordFunction) {
-      recordReturns = new ArrayList<>();
       recordReturns.add(recordFunction);
-      handlerSqlCalls = new ArrayList<>();
-      handlerSqlBindings = new ArrayList<>();
     }
 
     /**
@@ -129,45 +136,23 @@ public class JooqMock implements MockDataProvider {
     }
 
     /**
-     * Increment callCount, and call next record Supplier. If currently at the final record
-     * supplier, then call the last record supplier in the queue.
+     * Increment callCount, and call next record Supplier.
      *
      * @param ctx The context supplied to execute.
      * @return TableRecord to be returned.
+     * @throws NoSuchElementException if no records can be returned.
      */
-    Result<? extends Record> call(MockExecuteContext ctx) {
+    Result<? extends Record> call(MockExecuteContext ctx) throws NoSuchElementException {
       callCount++;
 
-      // handle creating new arrays and adding sql/bindings if first call at location in list
-      if (handlerSqlCalls.size() == location) {
-        handlerSqlCalls.add(new ArrayList<>(Collections.singletonList(ctx.sql())));
-        List<Object[]> objects = new ArrayList<>();
-        objects.add(ctx.bindings());
-        handlerSqlBindings.add(objects);
+      Result<? extends Record> record = recordReturns.remove().get();
+      // TODO: change this to Map.entry with j11
+      HashMap<String, Object> parameters = new HashMap<>();
+      for (int i = 0; i < ctx.columnNames().length; i++) {
+        parameters.put(ctx.columnNames()[i], ctx.bindings()[i]);
       }
-      // handle adding sql/bindings if not first call for this position
-      else {
-        handlerSqlCalls.get(location).add(ctx.sql());
-        handlerSqlBindings.get(location).add(ctx.bindings());
-      }
-
-      // if at end of list, repeatedly return the same thing every time called
-      if (location + 1 == recordReturns.size()) {
-        return recordReturns.get(location).get();
-      }
-
-      Result<? extends Record> record = recordReturns.get(location).get();
-      location++;
+      callSqlBindings.add(new SimpleEntry<>(ctx.sql(), parameters));
       return record;
-    }
-
-    /**
-     * Return the current location in the record Supplier queue.
-     *
-     * @return Int representing the current location.
-     */
-    int getLocation() {
-      return location;
     }
 
     /**
@@ -180,22 +165,12 @@ public class JooqMock implements MockDataProvider {
     }
 
     /**
-     * Return the SQL strings used with each call linked to each Record returned by position in the
-     * list.
+     * Return the SQL strings mapped to the object bindings for a given sql call.
      *
-     * @return List<List<String>> of every SQL string used.
+     * @return The calls to the mock. Maps sql query to map of field names and values.
      */
-    List<List<String>> getSqlStrings() {
-      return this.handlerSqlCalls;
-    }
-
-    /**
-     * Return the SQL bindings used with each call linked to each Record.
-     *
-     * @return List<List<Object[]>> of all SQL bindings used.
-     */
-    List<List<Object[]>> getSqlBindings() {
-      return this.handlerSqlBindings;
+    List<Map.Entry<String, Map<String, Object>>> getCallSqlBindings() {
+      return callSqlBindings;
     }
   }
 
@@ -506,21 +481,31 @@ public class JooqMock implements MockDataProvider {
   }
 
   /**
+   * For the given {@link OperationType}, returns a list, where each item in the list is a mapping
+   * from the generated SQL string to the parameter names and values used in the corresponding
+   * JooqMock call.
+   *
+   * @param op
+   * @return
+   */
+  public List<Map.Entry<String, Map<String, Object>>> getSqlCalls(OperationType op) {
+    return recordReturns.get(op).getCallSqlBindings();
+  }
+
+  /**
    * Combines everything in the List<List<String>> into one list to be what each Operation's name is
    * mapped to.
    *
    * @return Map of each Operation to each SQL operation used
-   * @deprecated Use {@link JooqMock#getSqlOperationStrings()}
+   * @deprecated Use {@link JooqMock#getSqlCalls(OperationType)}
    */
   @Deprecated
   public Map<String, List<String>> getSqlStrings() {
     Map<String, List<String>> result = new HashMap<>();
     recordReturns.forEach(
         (k, v) -> {
-          List<String> opResult = new ArrayList<>();
-          for (List<String> list : v.getSqlStrings()) {
-            opResult.addAll(list);
-          }
+          List<String> opResult =
+              v.getCallSqlBindings().stream().map(Map.Entry::getKey).collect(Collectors.toList());
           result.put(k.toString(), opResult);
         });
     return result;
@@ -531,15 +516,15 @@ public class JooqMock implements MockDataProvider {
    * OperationType}'s name is mapped to.
    *
    * @return Map of each Operation to each SQL operation used
+   * @deprecated It is preferred to use {@link this#getSqlCalls(OperationType)}.
    */
+  @Deprecated
   public Map<OperationType, List<String>> getSqlOperationStrings() {
     Map<OperationType, List<String>> result = new HashMap<>();
     recordReturns.forEach(
         (k, v) -> {
-          List<String> opResult = new ArrayList<>();
-          for (List<String> list : v.getSqlStrings()) {
-            opResult.addAll(list);
-          }
+          List<String> opResult =
+              v.getCallSqlBindings().stream().map(Map.Entry::getKey).collect(Collectors.toList());
           result.put(k, opResult);
         });
     return result;
@@ -550,18 +535,19 @@ public class JooqMock implements MockDataProvider {
    * is mapped to.
    *
    * @return Map of each Operation to each SQL binding used
-   * @deprecated in favor of {@link JooqMock#getSqlOperationBindings()}, {@link
-   *     JooqMock#getSqlBindings(OperationType)}, or {@link JooqMock#getRawSqlBindings()}
+   * @deprecated in favor of {@link this#getSqlCalls(OperationType)}.
    */
   @Deprecated
   public Map<String, List<Object[]>> getSqlBindings() {
     Map<String, List<Object[]>> result = new HashMap<>();
     recordReturns.forEach(
         (k, v) -> {
-          List<Object[]> opResult = new ArrayList<>();
-          for (List<Object[]> list : v.getSqlBindings()) {
-            opResult.addAll(list);
-          }
+          List<Object[]> opResult =
+              v.getCallSqlBindings().stream()
+                  .map(Map.Entry::getValue)
+                  .map(Map::values)
+                  .map(Collection::toArray)
+                  .collect(Collectors.toList());
           result.put(k.toString(), opResult);
         });
     return result;
@@ -572,13 +558,15 @@ public class JooqMock implements MockDataProvider {
    * is mapped to.
    *
    * @return Map of each Operation to each SQL binding used
+   * @deprecated in favor of {@link this#getSqlCalls(OperationType)}.
    */
+  @Deprecated
   public List<Object[]> getSqlBindings(OperationType operationType) {
-    List<Object[]> res = new ArrayList<>();
-    for (List<Object[]> list : recordReturns.get(operationType).getSqlBindings()) {
-      res.addAll(list);
-    }
-    return res;
+    return recordReturns.get(operationType).getCallSqlBindings().stream()
+        .map(Map.Entry::getValue)
+        .map(Map::values)
+        .map(Collection::toArray)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -587,15 +575,19 @@ public class JooqMock implements MockDataProvider {
    * call (which only really matters when an individual return is used multiple times).
    *
    * @return List of each binding used with the operation.
+   * @deprecated in favor of {@link this#getSqlCalls(OperationType)}.
    */
+  @Deprecated
   public Map<OperationType, List<Object[]>> getSqlOperationBindings() {
     Map<OperationType, List<Object[]>> result = new HashMap<>();
     recordReturns.forEach(
         (k, v) -> {
-          List<Object[]> opResult = new ArrayList<>();
-          for (List<Object[]> list : v.getSqlBindings()) {
-            opResult.addAll(list);
-          }
+          List<Object[]> opResult =
+              v.getCallSqlBindings().stream()
+                  .map(Map.Entry::getValue)
+                  .map(Map::values)
+                  .map(Collection::toArray)
+                  .collect(Collectors.toList());
           result.put(k, opResult);
         });
     return result;
@@ -607,12 +599,18 @@ public class JooqMock implements MockDataProvider {
    * return is used multiple times.
    *
    * @return List of list of each binding used with the operation.
+   * @deprecated in favor of {@link this#getSqlCalls(OperationType)}.
    */
+  @Deprecated
   public Map<OperationType, List<List<Object[]>>> getRawSqlBindings() {
     Map<OperationType, List<List<Object[]>>> result = new HashMap<>();
     recordReturns.forEach(
         (k, v) -> {
-          List<List<Object[]>> opResult = v.getSqlBindings();
+          List<List<Object[]>> opResult =
+              v.getCallSqlBindings().stream()
+                  .map(Map.Entry::getValue)
+                  .map(m -> Collections.singletonList(m.values().toArray()))
+                  .collect(Collectors.toList());
           result.put(k, opResult);
         });
     return result;
@@ -677,12 +675,14 @@ public class JooqMock implements MockDataProvider {
     // catch and rethrow exception if return not primed
     try {
       result = recordReturns.get(operation).call(ctx);
-    } catch (NullPointerException e) {
-      log.warn(
-          "WARNING: JooqMock could not find a primed result for the given operation,"
-              + "so an empty result is being returned. Provided SQL string was '{}'",
-          ctx.sql());
-      result = context.newResult();
+    } catch (NoSuchElementException e) {
+      throw new IllegalStateException(
+          "Record return expected for "
+              + operation
+              + " type call but none found\nSQL value: "
+              + ctx.sql()
+              + "\n"
+              + Arrays.asList(ctx.bindings()));
     }
     return new MockResult(result.size(), result);
   }
